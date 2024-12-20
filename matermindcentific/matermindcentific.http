@@ -1,0 +1,6 @@
+@matermindcentific_HostAddress = http://localhost:5212
+
+GET {{matermindcentific_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
