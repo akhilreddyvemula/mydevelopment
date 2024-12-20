@@ -1,31 +1,23 @@
-# Use the .NET SDK image to build your app
-FROM mcr.microsoft.com/dotnet/sdk:8.0-nanoserver-1809 AS build
 
-# Set the working directory inside the container
-WORKDIR /src
-
-# Copy the project file(s)
-COPY ["matermindcentific.csproj", "./"]
-
-# Set the user to Administrator to ensure sufficient permissions for restore
-USER ContainerAdministrator
-
-# Restore the dependencies
-RUN dotnet restore "./matermindcentific.csproj"
-
-# Copy the remaining files
-COPY . .
-
-# Build the application
-WORKDIR "/src/matermindcentific"
-RUN dotnet build "./matermindcentific.csproj" -c Release -o /app/build
-
-# Publish the application
-FROM build AS publish
-RUN dotnet publish "./matermindcentific.csproj" -c Release -o /app/publish /p:UseAppHost=false
-
-# Use the ASP.NET runtime image to run the application
-FROM mcr.microsoft.com/dotnet/aspnet:8.0-nanoserver-1809 AS final
+# Stage 1: Build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build-env
 WORKDIR /app
-COPY --from=publish /app/publish .
+
+# Copy the project file(s) and restore dependencies
+COPY *.csproj ./
+RUN dotnet restore
+
+# Copy the rest of the application and publish it
+COPY ./ ./
+RUN dotnet publish -c Release -o out
+
+# Stage 2: Serve
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+WORKDIR /app
+
+# Copy the published output from the build stage
+COPY --from=build-env /app/out ./
+
+# Set the entry point for the application
 ENTRYPOINT ["dotnet", "matermindcentific.dll"]
+
