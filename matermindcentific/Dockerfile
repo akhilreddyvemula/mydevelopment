@@ -1,32 +1,31 @@
-# See https://aka.ms/customizecontainer to learn how to customize your debug container and how Visual Studio uses this Dockerfile to build your images for faster debugging.
-
-# Depending on the operating system of the host machines(s) that will build or run the containers, the image specified in the FROM statement may need to be changed.
-# For more information, please see https://aka.ms/containercompat
-
-# This stage is used when running from VS in fast mode (Default for Debug configuration)
-FROM mcr.microsoft.com/dotnet/aspnet:8.0-nanoserver-1809 AS base
-WORKDIR /app
-EXPOSE 8080
-EXPOSE 8081
-
-
-# This stage is used to build the service project
+# Use the .NET SDK image to build your app
 FROM mcr.microsoft.com/dotnet/sdk:8.0-nanoserver-1809 AS build
-ARG BUILD_CONFIGURATION=Release
+
+# Set the working directory inside the container
 WORKDIR /src
+
+# Copy the project file(s)
 COPY ["matermindcentific.csproj", "./"]
+
+# Set the user to Administrator to ensure sufficient permissions for restore
+USER ContainerAdministrator
+
+# Restore the dependencies
 RUN dotnet restore "./matermindcentific.csproj"
+
+# Copy the remaining files
 COPY . .
+
+# Build the application
 WORKDIR "/src/matermindcentific"
-RUN dotnet build "./matermindcentific.csproj" -c %BUILD_CONFIGURATION% -o /app/build
+RUN dotnet build "./matermindcentific.csproj" -c Release -o /app/build
 
-# This stage is used to publish the service project to be copied to the final stage
+# Publish the application
 FROM build AS publish
-ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./matermindcentific.csproj" -c %BUILD_CONFIGURATION% -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "./matermindcentific.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
-# This stage is used in production or when running from VS in regular mode (Default when not using the Debug configuration)
-FROM base AS final
+# Use the ASP.NET runtime image to run the application
+FROM mcr.microsoft.com/dotnet/aspnet:8.0-nanoserver-1809 AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "matermindcentific.dll"]
